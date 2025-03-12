@@ -1,0 +1,1 @@
+# Note: the executables of sort in benchmark directory are specialised for benchmark by disabling the function to output the sorted array

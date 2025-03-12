@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.cu": "cuda-cpp",
+        "types.h": "c",
+        "unistd.h": "c"
+    }
+}

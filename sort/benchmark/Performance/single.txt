@@ -1,0 +1,6 @@
+array length:50000, 0.00566165
+array length:100000, 0.0099944
+array length:150000, 0.0145129
+array length:200000, 0.0195811
+array length:250000, 0.02501785
+array length:300000, 0.0306797
