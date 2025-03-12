@@ -8,9 +8,9 @@
 int main() {
     char path[] = "./PipeCopy";
 
-    size_t bufferSize;
-    for (int i = 1; i < 150; i++) {
-        bufferSize = i * 500;
+    size_t bufferSize=2;
+    for (int i = 1; i <= 20; i++) {
+        bufferSize *=2;
         double elapsed;
         clock_t start, end;
         start = clock();  // 记录开始时间
