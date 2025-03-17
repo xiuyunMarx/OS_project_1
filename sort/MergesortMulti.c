@@ -71,7 +71,8 @@ void *mergeSortThread(void *arguments) {
     free(args);  // free dynamically allocated memory
 
     mergeSort(start, end);
-    return NULL;  // return from pthread function
+    pthread_exit(NULL);  // return from pthread function
+    // return NULL;  // return from pthread function
 }
 
 int min(int x, int y) {

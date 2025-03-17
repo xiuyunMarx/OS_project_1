@@ -71,11 +71,11 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
         buffer = strtok(NULL, " ");
     }
 
-    if(strcmp(args[0],"cd") == 0){
-        if(tot == 1){
+    if (strcmp(args[0], "cd") == 0) {
+        if (tot == 1) {
             chdir(getenv("HOME"));
-        }else{
-            if(chdir(args[1]) < 0)
+        } else {
+            if (chdir(args[1]) < 0)
                 fprintf(stderr, "cd failed\n");
         }
 
@@ -83,19 +83,19 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
             free(args[i]);
         }
         return NULL;
-    } // handle cd command
+    }  // handle cd command
 
     args[tot] = NULL;
     tot++;
 
     pid_t pid;
-    int fd_in[2]; // this one is for the child process get input data from parent process
-    int fd_out[2]; // this is for execlvp to write output to parent process
+    int fd_in[2];   // this one is for the child process get input data from parent process
+    int fd_out[2];  // this is for execlvp to write output to parent process
     if (pipe((fd_in)) < 0) {
         fprintf(stderr, "pipe failed\n");
         exit(EXIT_FAILURE);
     }
-    if(pipe(fd_out) < 0){
+    if (pipe(fd_out) < 0) {
         fprintf(stderr, "pipe failed\n");
         exit(EXIT_FAILURE);
     }
@@ -110,23 +110,22 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
 
     if (pid == 0) {
         // child process
-        //note : fd[0] = read end of pipe, fd[1] = write end of pipe
+        // note : fd[0] = read end of pipe, fd[1] = write end of pipe
 
         if (dup2(fd_out[1], STDOUT_FILENO) < 0 || dup2(fd_out[1], STDERR_FILENO) < 0) {
             fprintf(stderr, "dup2 failed\n");
             exit(EXIT_FAILURE);
         }
 
-        if(dup2(fd_in[0], STDIN_FILENO) < 0){
+        if (dup2(fd_in[0], STDIN_FILENO) < 0) {
             fprintf(stderr, "dup2 failed\n");
             exit(EXIT_FAILURE);
         }
 
-        close(fd_out[0]); //close the unused read end and original write end
+        close(fd_out[0]);  // close the unused read end and original write end
         close(fd_out[1]);
         close(fd_in[0]);
         close(fd_in[1]);
-
 
         execvp(args[0], args);
 
@@ -134,24 +133,24 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
         exit(EXIT_FAILURE);
     } else if (pid > 0) {
         // parent process
-        close(fd_in[0]); // close the read end of input pipe
-        close(fd_out[1]); // close the write end of output pipe
+        close(fd_in[0]);   // close the read end of input pipe
+        close(fd_out[1]);  // close the write end of output pipe
 
-        if(!isFirst){
-            if(write(fd_in[1],buffer_of_last_command,strlen(buffer_of_last_command)) < 0){
+        if (!isFirst) {
+            if (write(fd_in[1], buffer_of_last_command, strlen(buffer_of_last_command)) < 0) {
                 fprintf(stderr, "write failed\n");
                 exit(EXIT_FAILURE);
-            }            
+            }
         }
-        close(fd_in[1]); //// Important: close the write end after writing so the child sees EOF.
+        close(fd_in[1]);  //// Important: close the write end after writing so the child sees EOF.
 
-        buffer_of_last_command[0] = '\0'; 
-        //clear cache of last command
+        buffer_of_last_command[0] = '\0';
+        // clear cache of last command
 
         size_t bytesRead = 0;
         size_t totalBytesRead = 0;
-        while (bytesRead = read(fd_out[0], buffer_of_last_command + totalBytesRead,
-                                DEFAULT_BUFFER_SIZE - totalBytesRead - 1 )) {
+        while (bytesRead =
+                   read(fd_out[0], buffer_of_last_command + totalBytesRead, DEFAULT_BUFFER_SIZE - totalBytesRead - 1)) {
             totalBytesRead += bytesRead;
             // accumulate the reading end of pipe until the pipe gets empty
         }
@@ -175,7 +174,6 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
 }
 
 int main(int argc, char *argv[]) {
-    
     while (true) {
         printf(">> ");
         if (fgets(command, sizeof(command), stdin) == NULL) {
@@ -191,11 +189,11 @@ int main(int argc, char *argv[]) {
         int cmdCount = 0;
         parseCommand(cmd, &cmdCount);
 
-        char buffer_of_last_command[DEFAULT_BUFFER_SIZE]= "";
-        for (int i = 0; i < cmdCount;i++) {
+        char buffer_of_last_command[DEFAULT_BUFFER_SIZE] = "";
+        for (int i = 0; i < cmdCount; i++) {
             excecuteCommand(cmd[i], buffer_of_last_command, (i == 0));
-            printf("%s\n", buffer_of_last_command);
         }
+        printf("%s\n", buffer_of_last_command);
     }
 
     return 0;
