@@ -1,23 +1,37 @@
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
 
+#include "pthread.h"
 #include "stdbool.h"
 #include "stdlib.h"
 #include "string.h"
 #include "sys/wait.h"
 #include "unistd.h"
-#define DEFAULT_BUFFER_SIZE 2048
-char command[1000];
 
-void removeTrailingLine() {
+#define DEFAULT_BUFFER_SIZE 2048
+
+typedef struct {
+    int connfd;
+    struct sockaddr_in clientAddr;
+} clientInfo_t;
+
+void removeTrailingLine(char *command) {
     size_t len = strlen(command);
     if (len && command[len - 1] == '\n') {
         command[len - 1] = '\0';
     }
+
+    char *cr = strchr(command, '\r');
+    if (cr) {
+        *cr = '\0';
+    }
 }
 
-void parseCommand(char cmd[][1000], int *cmdCount) {
+void parseCommand(char command[], char cmd[][1000], int *cmdCount) {
     size_t len = strlen(command);
     char *single = strtok(command, "|");
     size_t cnt = 0;
@@ -75,8 +89,10 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
         if (tot == 1) {
             chdir(getenv("HOME"));
         } else {
-            if (chdir(args[1]) < 0)
+            if (chdir(args[1]) < 0) {
                 fprintf(stderr, "cd failed\n");
+                strcat(buffer_of_last_command, "cd failed\n");
+            }
         }
 
         for (int i = 0; i < tot; i++) {
@@ -127,9 +143,9 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
         close(fd_in[0]);
         close(fd_in[1]);
 
-        execvp(args[0], args);
+        execvp(args[0], args);  // execute the command
 
-        perror("COMMAND EXECUTION failed");
+        perror("COMMAND EXECUTION failed ");
         exit(EXIT_FAILURE);
     } else if (pid > 0) {
         // parent process
@@ -173,28 +189,169 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
     return NULL;
 }
 
-int main(int argc, char *argv[]) {
+void *shellCore(char command[], char ret[]) {
+    // printf("message received from client: %s\n", command);
+    if (strcmp(command, "exit\n") == 0) {
+        strcpy(ret, "exit");
+        return NULL;
+        // exit the shell
+    }
+    removeTrailingLine(command);
+
+    char cmd[100][1000];
+    int cmdCount = 0;
+    parseCommand(command, cmd, &cmdCount);
+    // command => original command input , which is in a line
+    // cmd => the command after parsing, which is separated by "|"
+    // cmdCount => the number of commands
+    char buffer_of_last_command[DEFAULT_BUFFER_SIZE] = "";
+    for (int i = 0; i < cmdCount; i++) {
+        excecuteCommand(cmd[i], buffer_of_last_command, (i == 0));
+        printf("%s\n", buffer_of_last_command);  // the output of each command is printed in server side
+    }
+    strcpy(ret, buffer_of_last_command);
+    // only the output of last command will be sent to client
+    return NULL;
+}
+
+static pthread_mutex_t glock = PTHREAD_MUTEX_INITIALIZER;
+
+void *serveClient(const int connfd, const struct sockaddr_in clientAddr) {
+    char recv_buffer[DEFAULT_BUFFER_SIZE];
+    char send_buffer[DEFAULT_BUFFER_SIZE];
+
+    char working_dir[DEFAULT_BUFFER_SIZE];
+    strcpy(working_dir, getenv("HOME"));
     while (true) {
-        printf(">> ");
-        if (fgets(command, sizeof(command), stdin) == NULL) {
-            continue;
-        }
-        if (strcmp(command, "exit\n") == 0) {
+        memset(recv_buffer, 0, sizeof(recv_buffer));
+        memset(send_buffer, 0, sizeof(send_buffer));
+
+        int byteRead = read(connfd, recv_buffer, sizeof(recv_buffer) - 1);
+        if (byteRead < 0) {
+            fprintf(stderr, "read from client side failed, client IP: %d:\n", clientAddr.sin_addr, clientAddr.sin_port);
+            close(connfd);
             break;
-            // exit the shell
-        }
-        removeTrailingLine();
+        }  // handle exception
 
-        char cmd[100][1000];
-        int cmdCount = 0;
-        parseCommand(cmd, &cmdCount);
+        recv_buffer[byteRead] = '\0';  // null terminate the input
 
-        char buffer_of_last_command[DEFAULT_BUFFER_SIZE] = "";
-        for (int i = 0; i < cmdCount; i++) {
-            excecuteCommand(cmd[i], buffer_of_last_command, (i == 0));
+        if (strcmp(recv_buffer, "exit\n") == 0 || strcmp(recv_buffer, "exit") == 0 || byteRead == 0) {
+            break;
+        }  // handle exit condition
+
+        printf("commmand from %d:%d :%s\n", clientAddr.sin_addr, clientAddr.sin_port, recv_buffer);
+
+        pthread_mutex_lock(&glock);  // lock the mutex, here is the critical section
+        chdir(working_dir);          // change the working dir to the thread distinct working dir
+        shellCore(recv_buffer, send_buffer);
+        if (getcwd(working_dir, sizeof(working_dir)) == NULL) {
+            perror("getcwd failed");
+            break;
+        }  // update the working dir
+        pthread_mutex_unlock(&glock);
+
+        if (send(connfd, send_buffer, strlen(send_buffer), 0) < 0) {
+            perror("send failed");
+            break;
         }
-        printf("%s\n", buffer_of_last_command);
     }
 
+    printf("Connection from %s:%d closed\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+    close(connfd);
+
+    return NULL;
+}
+
+void *serveClientThread(void *arg) {
+    clientInfo_t *clientInfo = (clientInfo_t *)arg;
+    serveClient(clientInfo->connfd, clientInfo->clientAddr);
+    free(clientInfo);
+    return NULL;
+}
+
+void *severCore(char ip_addr[], const int port) {
+    int sockfd;
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);  // create a socket
+    if (sockfd < 0) {
+        perror("socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Optional: Set socket options for address reuse.
+    int opt = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("setsockopt failed");
+        exit(EXIT_FAILURE);
+    }
+
+    struct sockaddr_in serverAddr;
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = inet_addr(ip_addr);  // initialize server's IP
+    serverAddr.sin_port = htons(port);                // initialize port (network byte order)
+
+    if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
+        perror("bind failed");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    if (listen(sockfd, 20) < 0) {
+        perror("listen failed");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Server is listening on %s:%d\n", ip_addr, port);
+
+    // Main server loop
+    while (true) {
+        struct sockaddr_in clientAddr;
+        socklen_t clientLen = sizeof(clientAddr);
+        int connfd = accept(sockfd, (struct sockaddr *)&clientAddr, &clientLen);
+        // wait until client  connect
+        if (connfd < 0) {
+            perror("accept failed");
+            continue;  // skip to next iteration instead of exiting
+        }
+        printf("Connection from %s:%d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+
+        clientInfo_t *INFO = (clientInfo_t *)malloc(sizeof(clientInfo_t));
+        if (INFO == NULL) {
+            fprintf(stderr, "malloc failed\n");
+            close(connfd);
+            continue;
+        }
+
+        INFO->connfd = connfd;
+        INFO->clientAddr = clientAddr;
+
+        pthread_t clientThread;
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+
+        int state = pthread_create(&clientThread, &attr, serveClientThread, (void *)INFO);
+        if (state != 0) {
+            fprintf(stderr, "pthread_create failed\n");
+            close(connfd);
+            free(INFO);
+        }
+        pthread_detach(clientThread);
+    }
+
+    close(sockfd);
+    return NULL;
+}
+int main(int argc, char *argv[]) {
+    char ip_addr[64];
+    int port;
+    if (argc == 3) {
+        strcpy(ip_addr, argv[1]);
+        port = atoi(argv[2]);
+    } else if (argc == 2) {
+        strcpy(ip_addr, "127.0.0.1");
+        port = atoi(argv[1]);
+    }
+    severCore(ip_addr, port);
     return 0;
 }

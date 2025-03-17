@@ -47,13 +47,13 @@ or
 
 ## Run a Single Shell
 
-1. Navigate to the `/shell` directory:
+1. Navigate to the `/shellSingle` directory:
    ```bash
    cd /Project1/shell
    ```
 2. Run the shell program:
    ```bash
-   ./shell
+   ./shellSingle
    ```
    
 ## Run Shell in a Server
@@ -62,13 +62,13 @@ or
 
 - **Default mode (localhost)**  
   ```bash
-  ./severCore <Port>
+  ./shell <Port>
   ```
   This assigns the server to `127.0.0.1` (localhost).
 
 - **Custom host mode**  
   ```bash
-  ./severCore <IP_Address> <Port>
+  ./shell <IP_Address> <Port>
   ```
   This assigns the server to the specified IP address and port.
 
