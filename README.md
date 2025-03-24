@@ -21,7 +21,7 @@
 
 ### Benchmark Configurations and Programs
 
-These are located in the `/benchmark` and `/benchmark_timespec` directories. They use different timing methods, and each directory contains a Python script to visualize performance.
+These are located in the `/benchmark` and `/benchmark_timeval` directories. They use different timing methods, and each directory contains a Python script to visualize performance.
 
 #### Running Benchmarks
 
