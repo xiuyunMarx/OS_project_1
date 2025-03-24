@@ -16,7 +16,7 @@ void copy(FILE *src, FILE *dest, const size_t buffer_size) {
     size_t bytesRead;
 
     // Read data in chunks and write to the destination file.
-    while ((bytesRead = fread(inputBuffer, 1, sizeof(inputBuffer), src)) > 0) {
+    while ((bytesRead = fread(inputBuffer, 1, buffer_size*sizeof(char), src)) > 0) {
         if (fwrite(inputBuffer, 1, bytesRead, dest) != bytesRead) {
             perror("Error writing to destination file");
             exit(EXIT_FAILURE);

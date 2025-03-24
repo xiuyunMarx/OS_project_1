@@ -22,11 +22,11 @@ int main(int argc, char *argv[]) {
     if (pid == 0) {
         // child process
         if (argc == 4) {
-            execl("./MyCopy", argv[0], argv[1], argv[2], argv[3], NULL);
+            execl("./MyCopy", "MyCopy", argv[1], argv[2], argv[3], NULL);
         } else {
-            execl("./MyCopy", argv[0], argv[1], argv[2], NULL);
+            execl("./MyCopy", "MyCopy", argv[1], argv[2], NULL);
         }
-        perror("execl Failed");
+        perror("execl Failed in ForkCopy");
         exit(1);
     } else {  // parent process
         wait(NULL);

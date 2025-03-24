@@ -19,7 +19,7 @@ void readinFile(const char *srcName, int pipefd[2], const size_t bufferSize) {
     char *buffer = (char *)malloc(bufferSize*sizeof(char));
     size_t bytesRead;
 
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), src)) > 0) {
+    while ((bytesRead = fread(buffer, 1, bufferSize*sizeof(char), src)) > 0) {
         if (write(pipefd[1], buffer, bytesRead) != (ssize_t)bytesRead) {
             perror("Error writing to pipe");
             fclose(src);
@@ -46,7 +46,7 @@ void writeFile(const char *destName, int pipefd[2], const size_t bufferSize) {
 
     char *buffer = (char *)malloc(sizeof(char)*bufferSize);
     ssize_t bytesRead;  // read returns ssize_t
-    while ((bytesRead = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
+    while ((bytesRead = read(pipefd[0], buffer, bufferSize*sizeof(char))) > 0) {
         if (fwrite(buffer, 1, bytesRead, dest) != (size_t)bytesRead) {
             perror("Error writing to destination file");
             fclose(dest);

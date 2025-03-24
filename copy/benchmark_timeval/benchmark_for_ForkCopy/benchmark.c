@@ -1,40 +1,42 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
+#include <sys/time.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
 #define TEST_TIMES 20
+#define CLOCK_MONOTONIC 1
+
 int main() {
-    char path[] = "/home/xyma/MarxFiles/Project1/copy/MyCopy";
+    char path[] = "/home/xyma/MarxFiles/Project1/copy/ForkCopy";
     chdir("/home/xyma/MarxFiles/Project1/copy");
-
     size_t bufferSize = 1;
-    for (int i = 0; i < 20; i++) {
+    for (int i = 1; i <= 20; i++) {
         bufferSize *= 2;
-
         double sum = 0;
         for (int j = 0; j < TEST_TIMES; j++) {
-            clock_t start, end;
+            struct timeval start, end;
+            long seconds, microseconds;
             double elapsed;
-            start = clock();
 
+            gettimeofday(&start, NULL);
             pid_t pid = fork();
             if (pid < 0) {
                 fprintf(stderr, "Fork failed\n");
                 continue;
-            }
-            if (pid == 0) {  // the child process
+            } else if (pid == 0) {
+                // 子进程
                 char buffer[42];
                 sprintf(buffer, "%zu", bufferSize);
-                if (execl(path, "MyCopy", "input.txt", "output.txt", buffer, (char *)NULL) == -1) {
+                if (execl(path, "ForkCopy", "input.txt", "output.txt", buffer, (char *)NULL) == -1) {
                     perror("execl failed in benchmark");
                     exit(EXIT_FAILURE);
                 }
             } else {
                 wait(NULL);
-                end = clock();
-                elapsed = (double)(end - start) / CLOCKS_PER_SEC;
+                gettimeofday(&end, NULL);
+                seconds = end.tv_sec - start.tv_sec;
+                microseconds = end.tv_usec - start.tv_usec;
+                elapsed = seconds + microseconds / 1e6;
                 sum += elapsed;
             }
         }
