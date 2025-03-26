@@ -7,7 +7,7 @@
 #include "string.h"
 #include "sys/wait.h"
 #include "unistd.h"
-#define DEFAULT_BUFFER_SIZE 2048
+#define DEFAULT_BUFFER_SIZE 9012
 char command[1000];
 
 void removeTrailingLine() {

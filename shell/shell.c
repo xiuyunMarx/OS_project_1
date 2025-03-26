@@ -12,7 +12,7 @@
 #include "sys/wait.h"
 #include "unistd.h"
 
-#define DEFAULT_BUFFER_SIZE 2048
+#define DEFAULT_BUFFER_SIZE 9012
 
 typedef struct {
     int connfd;
