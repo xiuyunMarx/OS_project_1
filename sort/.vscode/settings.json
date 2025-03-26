@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "*.cu": "cuda-cpp",
-        "complex": "c",
-        "condition_variable": "cpp",
-        "shared_mutex": "cpp",
-        "mutex": "cpp"
-    }
-}

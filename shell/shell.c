@@ -12,7 +12,7 @@
 #include "sys/wait.h"
 #include "unistd.h"
 
-#define DEFAULT_BUFFER_SIZE 9012
+#define DEFAULT_BUFFER_SIZE 1000000
 
 typedef struct {
     int connfd;
@@ -84,15 +84,15 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
         tot++;
         buffer = strtok(NULL, " ");
     }
+    args[tot] = NULL;
+    tot++;
 
     if (strcmp(args[0], "cd") == 0) {
         if (tot == 1) {
             chdir(getenv("HOME"));
         } else {
-            if (chdir(args[1]) < 0) {
+            if (chdir(args[1]) < 0)
                 fprintf(stderr, "cd failed\n");
-                strcat(buffer_of_last_command, "cd failed\n");
-            }
         }
 
         for (int i = 0; i < tot; i++) {
@@ -100,9 +100,6 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
         }
         return NULL;
     }  // handle cd command
-
-    args[tot] = NULL;
-    tot++;
 
     pid_t pid;
     int fd_in[2];   // this one is for the child process get input data from parent process
@@ -143,9 +140,9 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
         close(fd_in[0]);
         close(fd_in[1]);
 
-        execvp(args[0], args);  // execute the command
+        execvp(args[0], args);
 
-        perror("COMMAND EXECUTION failed ");
+        perror("COMMAND EXECUTION failed");
         exit(EXIT_FAILURE);
     } else if (pid > 0) {
         // parent process
@@ -159,17 +156,21 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
             }
         }
         close(fd_in[1]);  //// Important: close the write end after writing so the child sees EOF.
+        wait(NULL);
 
-        buffer_of_last_command[0] = '\0';
-        // clear cache of last command
+        memset(buffer_of_last_command, 0, strlen(buffer_of_last_command));
 
         size_t bytesRead = 0;
         size_t totalBytesRead = 0;
-        while (bytesRead =
-                   read(fd_out[0], buffer_of_last_command + totalBytesRead, DEFAULT_BUFFER_SIZE - totalBytesRead - 1)) {
+
+        while (true) {
+            bytesRead = read(fd_out[0], buffer_of_last_command + totalBytesRead, DEFAULT_BUFFER_SIZE - totalBytesRead);
             totalBytesRead += bytesRead;
-            // accumulate the reading end of pipe until the pipe gets empty
+            if (bytesRead <= 0) {
+                break;
+            }
         }
+        close(fd_out[0]);
         // update the output buffer
         if (bytesRead < 0) {
             fprintf(stderr, "read failed when obtaining info from pipe\n");
@@ -178,8 +179,7 @@ void *excecuteCommand(char *cmd, char *buffer_of_last_command, bool isFirst) {
         } else {
             buffer_of_last_command[totalBytesRead] = '\0';
         }
-        close(fd_out[0]);
-        wait(NULL);
+
         // parent process
     }
 
