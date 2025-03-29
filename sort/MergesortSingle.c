@@ -1,3 +1,5 @@
+#include <string.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/unistd.h>
 
@@ -70,12 +72,19 @@ int main() {
         scanf("%lld", &arr[i]);
     }
 
-    struct timespec begin, finish;  
+    struct timeval start, finish;
     double elapsed;
-    clock_gettime(CLOCK_MONOTONIC, &begin);
+
+    gettimeofday(&start, NULL);
+
     mergeSort(arr, 0, n - 1);
-    clock_gettime(CLOCK_MONOTONIC, &finish);
-    elapsed = (finish.tv_sec - begin.tv_sec) + (finish.tv_nsec - begin.tv_nsec) / 1000000000.0;
+
+    gettimeofday(&finish, NULL);
+
+    elapsed = (finish.tv_sec - start.tv_sec) + 
+              (finish.tv_usec - start.tv_usec) / 1000000.0;
+
+    
     fprintf(stderr, "Time elapsed: %f seconds.\n", elapsed);
     for (int i = 0; i <= n - 1; i++) {
         printf("%lld ", arr[i]);
