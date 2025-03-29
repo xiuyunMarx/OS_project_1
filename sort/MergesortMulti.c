@@ -8,6 +8,8 @@
 #include "string.h"
 #include "sys/time.h"
 #include "unistd.h"
+
+
 #define CLOCK_MONOTONIC 1
 int MAX_THREADS = 2;
 int MAX_DEPTH = 1;
@@ -111,7 +113,8 @@ void mergeSlot(const Slot *slot, int left, int right) {
     return;
 }
 int main(int argc, char *argv[]) {
-    struct timespec begin, finish;
+    // struct timespec begin, finish;
+    struct timeval begin, finish;
     double time_elapsed;
 
     if (argc > 1) {
@@ -126,7 +129,7 @@ int main(int argc, char *argv[]) {
         scanf("%lld", &arr[i]);
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &begin);  // timing start , after input reading
+    gettimeofday(&begin, NULL);  // timing start , after input reading
 
     Slot *slot = (Slot *)malloc((n / MAX_THREADS + 3) * sizeof(Slot));
     // slot stands for each divided part of the array
@@ -157,8 +160,11 @@ int main(int argc, char *argv[]) {
 
     mergeSlot(slot, 0, slotCnt - 1);
 
-    clock_gettime(CLOCK_MONOTONIC, &finish);  // timing end
-    time_elapsed = ((finish.tv_sec - begin.tv_sec) + (finish.tv_nsec - begin.tv_nsec) / 1e9);
+    gettimeofday(&finish,NULL);  // timing end
+    time_elapsed = (finish.tv_sec - begin.tv_sec) + 
+                    (finish.tv_usec - begin.tv_usec) / 1000000.0;
+
+                    
     fprintf(stderr, "Time elapsed: %f\n", time_elapsed);
     for (int i = 0; i <= n - 1; i++) {
         printf("%lld ", arr[i]);
